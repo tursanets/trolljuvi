@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Enciclopédia da Vida de Jhenifer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(to bottom, #f9fafb, #e5e7eb);
+            color: #111827;
+        }
+        .gradient-text {
+            background: linear-gradient(90deg, #7e22ce, #db2777, #f97316);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .gradient-bg {
+            background: linear-gradient(90deg, #9333ea, #ec4899);
+        }
+        .card {
+            background-color: white;
+            border-radius: 1.5rem;
+            border: 1px solid rgba(0,0,0,0.03);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.15);
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in-up {
+            opacity: 0;
+            animation: fadeInUp 0.8s ease-out forwards;
+            animation-delay: var(--delay, 0ms);
+        }
+        .carousel-item { 
+            transition: opacity 1s ease-in-out;
+            background-color: #000; 
+        }
+        .carousel-item img {
+            object-fit: contain; 
+        }
+        .memory-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; perspective: 1000px; }
+        .memory-card { aspect-ratio: 1 / 1; transform-style: preserve-3d; transition: transform 0.6s, opacity 0.3s; cursor: pointer; position: relative; }
+        .memory-card.is-flipped { transform: rotateY(180deg); }
+        .card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 1rem; overflow: hidden; }
+        /* --- CORREÇÃO AQUI --- */
+        .card-front { 
+            transform: rotateY(180deg); 
+            background-size: contain; /* Alterado de 'cover' para 'contain' */
+            background-position: center; 
+            background-repeat: no-repeat; /* Evita que a imagem se repita */
+            background-color: #f9fafb; /* Cor de fundo para preencher espaço vazio */
+        }
+        .card-back { background-color: #e5e7eb; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: bold; color: #9ca3af; }
+        .shuffling .memory-card { opacity: 0; transform: scale(0.8); }
+        #reaction-box { transition: background-color 0.2s; }
+        #camera-mirror { transform: scaleX(-1); }
+
+        .blurred-image-container { position: relative; cursor: pointer; overflow: hidden; border-radius: 1rem; }
+        .blurred-image-container img { transition: filter 0.5s ease-in-out; filter: blur(20px); }
+        .blurred-image-container .overlay { position: absolute; inset: 0; background-color: rgba(0,0,0,0.4); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; transition: opacity 0.5s ease-in-out; opacity: 1; }
+        .blurred-image-container.revealed img { filter: blur(0); }
+        .blurred-image-container.revealed .overlay { opacity: 0; }
+        .action-button { transition: background-color 0.2s, box-shadow 0.2s; }
+        .action-button:hover { box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05); }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Modals -->
+    <div id="custom-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-xl p-8 text-center max-w-sm mx-auto transform transition-all duration-300 scale-95">
+            <h3 id="modal-title" class="text-2xl sm:text-3xl font-bold gradient-text mb-4">Aviso!</h3>
+            <p id="modal-message" class="text-base sm:text-lg text-gray-700 mb-6">Mensagem</p>
+            <button onclick="closeModal()" class="gradient-bg text-white font-bold py-2 px-8 rounded-full transition-transform hover:scale-105 hover:brightness-110">Entendido</button>
+        </div>
+    </div>
+    
+    <div id="camera-modal" class="fixed inset-0 bg-black z-50 hidden flex-col items-center justify-center">
+        <video id="camera-mirror" class="absolute w-full h-full object-cover" autoplay playsinline></video>
+        <div class="relative text-center text-white p-4 bg-black bg-opacity-50 rounded-lg">
+            <h2 class="text-2xl sm:text-3xl font-bold">Espécime Raro Encontrado!</h2>
+            <p class="text-lg sm:text-xl">Favor não alimentar após a meia-noite.</p>
+        </div>
+        <button onclick="closeCamera()" class="absolute bottom-10 gradient-bg text-white font-bold py-3 px-8 rounded-full transition-transform hover:scale-105 hover:brightness-110">Fechar Espelho</button>
+    </div>
+
+    <div class="container mx-auto p-4 max-w-3xl">
+        <header class="text-center py-12 sm:py-16 fade-in-up">
+            <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold gradient-text leading-tight">A Enciclopédia da Vida de Jhenifer</h1>
+            <p class="text-xl sm:text-2xl font-bold mt-2 text-gray-800">(Feito por 👃)</p>
+        </header>
+
+        <main class="space-y-12 sm:space-y-16">
+            
+            <section class="fade-in-up">
+                <h2 class="text-2xl sm:text-3xl font-bold text-center mb-6">Galeria de Arte: "Suas Melhores Fotos"</h2>
+                <div class="card relative p-4">
+                    <div id="carousel" class="relative overflow-hidden rounded-xl h-[60vh] sm:h-[70vh] md:h-[80vh]">
+                        <div class="carousel-item absolute w-full h-full opacity-0"><img src="imgs/bla.png" alt="Foto zoada 1" class="w-full h-full"></div>
+                        <div class="carousel-item absolute w-full h-full opacity-0"><img src="imgs/bla2.png" alt="Foto zoada 2" class="w-full h-full"></div>
+                        <div class="carousel-item absolute w-full h-full opacity-0"><img src="imgs/bla3.png" alt="Foto zoada 3" class="w-full h-full"></div>
+                        <div class="carousel-item absolute w-full h-full opacity-0"><img src="imgs/bla4.png" alt="Foto zoada 4" class="w-full h-full"></div>
+                        <div class="carousel-item absolute w-full h-full opacity-0"><img src="imgs/bla5.png" alt="Foto zoada 5" class="w-full h-full"></div>
+                        <div class="carousel-item absolute w-full h-full opacity-0"><img src="imgs/bla6.png" alt="Foto zoada 6" class="w-full h-full"></div>
+                    </div>
+                    <button id="prev-btn" class="absolute top-1/2 left-2 transform -translate-y-1/2 bg-white/70 p-2 rounded-full shadow-md transition-transform hover:scale-110">&lt;</button>
+                    <button id="next-btn" class="absolute top-1/2 right-2 transform -translate-y-1/2 bg-white/70 p-2 rounded-full shadow-md transition-transform hover:scale-110">&gt;</button>
+                </div>
+            </section>
+            
+            <section class="card p-6 sm:p-8 fade-in-up">
+                <h2 class="text-2xl sm:text-3xl font-bold text-center mb-6">Hino Oficial da Jhenifer</h2>
+                <div class="text-center">
+                    <p id="song-title" class="text-lg sm:text-xl font-bold text-gray-800">Nome da Música</p>
+                    <audio id="music-player" controls class="w-full mt-4"></audio>
+                    <div class="flex justify-center gap-4 mt-4">
+                        <button id="prev-song-btn" class="bg-gray-200 p-3 rounded-full hover:bg-gray-300 action-button"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path></svg></button>
+                        <button id="next-song-btn" class="bg-gray-200 p-3 rounded-full hover:bg-gray-300 action-button"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg></button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 fade-in-up">
+                <div class="card p-6 sm:p-8 text-center">
+                    <h3 class="text-xl sm:text-2xl font-bold mb-2">Filtro de Beleza Nível Hard</h3>
+                    <p class="text-gray-600 mb-6">Ative nosso filtro e veja a mágica.</p>
+                    <button onclick="openCamera()" class="w-full bg-gray-200 text-gray-800 font-bold py-3 px-6 rounded-lg action-button">Ativar Espelho</button>
+                </div>
+                <div class="card p-6 sm:p-8 text-center">
+                    <h3 class="text-xl sm:text-2xl font-bold mb-2">Analisador de QI</h3>
+                    <p class="text-gray-600 mb-6">Digite seu nome para uma análise.</p>
+                    <input id="qi-name" type="text" placeholder="Jhenifer" class="w-full border-gray-300 rounded-lg mb-4 text-center">
+                    <button id="qi-button" class="w-full bg-gray-200 text-gray-800 font-bold py-3 px-6 rounded-lg action-button">Analisar</button>
+                </div>
+            </section>
+            
+            <section class="fade-in-up">
+                <h2 class="text-2xl sm:text-3xl font-bold text-center mb-6">Ferramentas de Análise Portáteis</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+                    <div class="card p-6 sm:p-8 text-center"><h3 class="text-xl sm:text-2xl font-bold mb-2">Detector de Cheiro</h3><p class="text-gray-600 mb-6">Análise de aroma (requer proximidade).</p><button id="smell-test-button" class="w-full bg-gray-200 text-gray-800 font-bold py-3 px-6 rounded-lg action-button">Iniciar Análise</button><p id="smell-test-result" class="mt-4 font-bold text-xl h-8"></p></div>
+                    <div class="card p-6 sm:p-8 text-center"><h3 class="text-xl sm:text-2xl font-bold mb-2">Verificador de Altura</h3><p class="text-gray-600 mb-6">Use o sensor para medição precisa.</p><div id="height-sensor" class="w-24 h-24 bg-blue-100 rounded-full mx-auto flex items-center justify-center cursor-pointer transition-colors hover:bg-blue-200"><p id="height-text" class="font-bold text-blue-800">Sensor</p></div><p id="height-test-result" class="mt-4 font-bold text-xl h-8"></p></div>
+                </div>
+            </section>
+            
+            <section class="fade-in-up">
+                <h2 class="text-2xl sm:text-3xl font-bold text-center mb-6">Arquivo Confidencial: O Namorado Misterioso</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
+                    <div class="blurred-image-container">
+                        <img src="imgs/oruam-foi-preso-agora-v0-lmp20by6ahef1.webp" alt="Foto misteriosa 1" class="w-full h-full object-cover">
+                        <div class="overlay"><svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg><span class="font-bold">Clique para Revelar</span></div>
+                    </div>
+                    <div class="blurred-image-container">
+                        <img src="imgs/Oruam-ReproducaoInstagram.png" alt="Foto misteriosa 2" class="w-full h-full object-cover">
+                        <div class="overlay"><svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg><span class="font-bold">Clique para Revelar</span></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card p-6 sm:p-8 fade-in-up">
+                <h2 class="text-2xl sm:text-3xl font-bold text-center mb-2">Teste de Memória: Nível Shenlong da Shopee</h2>
+                <p class="text-center text-gray-600 mb-6">Encontre os pares. Se conseguir, claro.</p>
+                <div id="memory-game" class="memory-grid"></div><p id="memory-attempts" class="text-center mt-6 font-bold text-lg">Tentativas: 0</p>
+            </section>
+
+            <section class="fade-in-up">
+                <h2 class="text-2xl sm:text-3xl font-bold text-center mb-6">Centro de Testes e Desafios</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+                    <div class="card p-6 sm:p-8 text-center"><h3 class="text-xl sm:text-2xl font-bold mb-4">Teste de Clique</h3><p class="text-gray-600 mb-6">Clique o mais rápido que puder!</p><button id="click-test-button" class="w-full bg-gray-200 text-gray-800 font-bold py-3 px-6 rounded-lg action-button">Começar!</button><p id="click-test-result" class="mt-4 font-bold text-xl h-8"></p></div>
+                    <div class="card p-6 sm:p-8 text-center flex flex-col"><h3 class="text-xl sm:text-2xl font-bold mb-4">Teste de Reflexo Nível Lesma</h3><div id="reaction-box" class="w-full flex-grow bg-blue-500 rounded-lg flex items-center justify-center cursor-pointer"><button id="reaction-start-button" class="bg-white text-blue-700 font-bold py-3 px-6 rounded-lg">Iniciar</button></div><p id="reaction-result" class="mt-4 font-bold text-xl h-8"></p></div>
+                </div>
+            </section>
+            
+            <section class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 fade-in-up">
+                <div class="card p-6 sm:p-8"><h3 class="text-xl sm:text-2xl font-bold mb-4 text-center">Contrato de Amizade</h3><div class="h-32 bg-gray-100 p-3 rounded-lg overflow-y-scroll text-sm text-gray-500 mb-4 border"><p>Ao marcar esta caixa, eu, Jhenifer, concordo em: 1. Rir de todas as piadas desta página. 2. Pagar o açai do Narigudo. 3. Admitir que sou baixinha. 4. Não me vingar por este site. 5. Tomar banho todos os dias. Contrato irrevogável.</p></div><label class="flex items-center justify-center"><input type="checkbox" id="terms-checkbox" class="h-5 w-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"><span class="ml-3 text-gray-700">Li e concordo com os termos.</span></label></div>
+                <div class="card p-6 sm:p-8 text-center"><h3 class="text-xl sm:text-2xl font-bold mb-4">Gerador de Elogios</h3><p class="text-gray-600 mb-6">Um elogio 100% honesto.</p><button id="praise-button" class="gradient-bg text-white font-bold py-3 px-8 rounded-full transition-transform hover:scale-105 hover:brightness-110">Gerar Elogio</button><p id="praise-output" class="mt-6 text-xl italic text-purple-700 h-12"></p></div>
+            </section>
+
+            <section class="card p-6 sm:p-8 fade-in-up">
+                <h2 class="text-2xl sm:text-3xl font-bold text-center mb-6">Seu Último Áudio Vazado</h2>
+                <div class="text-center">
+                    <p class="text-gray-600 mb-4">O que você anda falando por aí? 🤫</p>
+                    <audio controls class="w-full" src="musicas/ElevenLabs_2025-09-24T00_02_45_Ana Dias_pvc_sp100_s50_sb75_se0_b_m2.mp3"></audio>
+                </div>
+            </section>
+
+        </main>
+
+        <footer class="text-center py-12 sm:py-16 mt-8"><p class="text-gray-500">Criado com 0.9999% de carinho e 99.9999% de ÓDIO.</p></footer>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('fade-in-up');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1 });
+        
+        document.querySelectorAll('.fade-in-up').forEach((el, index) => {
+            el.style.setProperty('--delay', `${index * 100}ms`);
+            observer.observe(el);
+        });
+
+        const modal = document.getElementById('custom-modal');
+        const modalContent = modal.querySelector('div');
+        window.showModal = (title, message) => {
+            modal.querySelector('#modal-title').textContent = title;
+            modal.querySelector('#modal-message').textContent = message;
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.add('opacity-100'); modalContent.classList.remove('scale-95'); }, 10);
+        };
+        window.closeModal = () => {
+            modal.classList.remove('opacity-100'); modalContent.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        const cameraModal = document.getElementById('camera-modal');
+        const videoEl = document.getElementById('camera-mirror');
+        let stream;
+        window.openCamera = async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+                videoEl.srcObject = stream;
+                cameraModal.classList.remove('hidden');
+            } catch (err) {
+                showModal('Câmera Bloqueada', 'Você precisa permitir o acesso à câmera para essa zoeira funcionar!');
+            }
+        };
+        window.closeCamera = () => {
+            if (stream) { stream.getTracks().forEach(track => track.stop()); }
+            cameraModal.classList.add('hidden');
+        };
+
+        const carouselItems = document.querySelectorAll('.carousel-item');
+        let currentCarouselIndex = 0;
+        function showCarouselImage(index) {
+            carouselItems.forEach((item, i) => {
+                item.style.opacity = i === index ? '1' : '0';
+            });
+        }
+        document.getElementById('prev-btn').addEventListener('click', () => {
+            currentCarouselIndex = (currentCarouselIndex - 1 + carouselItems.length) % carouselItems.length;
+            showCarouselImage(currentCarouselIndex);
+        });
+        document.getElementById('next-btn').addEventListener('click', () => {
+            currentCarouselIndex = (currentCarouselIndex + 1) % carouselItems.length;
+            showCarouselImage(currentCarouselIndex);
+        });
+        showCarouselImage(0);
+        
+        const musicPlayer = document.getElementById('music-player');
+        const songTitleEl = document.getElementById('song-title');
+        const prevSongBtn = document.getElementById('prev-song-btn');
+        const nextSongBtn = document.getElementById('next-song-btn');
+
+        const songs = [
+            { title: "Música 1", src: "musicas/Mc Gorila- Cheio de Sal (Gdj Studio) - MC GORILA (youtube).mp3" },
+            { title: "Música 2", src: "musicas/vem rasgar minha xrc deixa ela arder ⧸⧸ automotivo novinho depressivo (speed up).mp3" },
+            { title: "Música 3", src: "musicas/To Fazendo Amor Com a Favela Toda.mp3" },
+            { title: "Música 4", src: "musicas/MC JESSICA DO ESCADÃO - HOJE O DIA TA LINDO - (DJ DO CRIME) - DA PONTE PRA CÁ PRODUTORA (VIDEOCLIP.mp3" },
+            { title: "Música 5", src: "musicas/MC JESSICA DO ESCADÃO - AI MEU UUU - DJ DO CRIME  ( DA PONTE PRA CA ).mp3" },
+            { title: "Música 6", src: "musicas/MC CAROL - VAMPIRO DE MADUREIRA (feat. MC GORILA) [prod. DuaL].mp3" },
+        ];
+        let currentSongIndex = 0;
+        function loadSong(song) {
+            songTitleEl.textContent = song.title;
+            musicPlayer.src = song.src;
+        }
+        function playPrevSong() {
+            currentSongIndex = (currentSongIndex - 1 + songs.length) % songs.length;
+            loadSong(songs[currentSongIndex]);
+            musicPlayer.play();
+        }
+        function playNextSong() {
+            currentSongIndex = (currentSongIndex + 1) % songs.length;
+            loadSong(songs[currentSongIndex]);
+            musicPlayer.play();
+        }
+        prevSongBtn.addEventListener('click', playPrevSong);
+        nextSongBtn.addEventListener('click', playNextSong);
+        musicPlayer.addEventListener('ended', playNextSong);
+        loadSong(songs[currentSongIndex]);
+
+        document.querySelectorAll('.blurred-image-container').forEach(item => {
+            item.addEventListener('click', () => { item.classList.add('revealed'); });
+        });
+
+        document.getElementById('qi-button').addEventListener('click', () => {
+            const name = document.getElementById('qi-name').value || "Jhenifer";
+            const qi = Math.floor(Math.random() * 30) + 60;
+            showModal(`Análise de QI para ${name}`, `Resultado: ${qi}. Compatível com alguém que acredita em tudo que lê na internet.`);
+        });
+
+        document.getElementById('smell-test-button').addEventListener('click', (e) => {
+            e.target.disabled = true; document.getElementById('smell-test-result').textContent = 'Analisando...';
+            setTimeout(() => {
+                document.getElementById('smell-test-result').textContent = "Alerta: Banho recomendado!";
+                showModal("Análise Concluída", "Cheiro de merda, não lavou o cu, tá fedendo!");
+                e.target.disabled = false;
+            }, 2000);
+        });
+
+        document.getElementById('height-sensor').addEventListener('click', () => {
+            document.getElementById('height-test-result').textContent = 'Medindo...';
+            setTimeout(() => {
+                const altura = "1,49cm (mama em pé)";
+                document.getElementById('height-test-result').textContent = `Resultado: ${altura}`;
+                showModal("Medição Finalizada", `Altura oficial: ${altura}.`);
+            }, 2000);
+        });
+        
+        const gameContainer = document.getElementById('memory-game');
+        const attemptsEl = document.getElementById('memory-attempts');
+        
+        const memoryImages = [
+            'imgs/cla1.png', 'imgs/cla3.png', 'imgs/cla5.png', 'imgs/cla7.png',
+            'imgs/cla2.png', 'imgs/cla4.png', 'imgs/cla6.png', 'imgs/cla8.png',
+        ];
+
+        let flippedCards = []; let lockBoard = false; let attempts = 0;
+        function createBoard() {
+            let cardImages = [...memoryImages, ...memoryImages].sort(() => Math.random() - 0.5);
+            gameContainer.innerHTML = '';
+            cardImages.forEach(imagePath => {
+                const card = document.createElement('div');
+                card.classList.add('memory-card');
+                card.dataset.image = imagePath;
+                card.innerHTML = `<div class="card-face card-back">?</div><div class="card-face card-front" style="background-image: url('${imagePath}')"></div>`;
+                card.addEventListener('click', () => flipCard(card));
+                gameContainer.appendChild(card);
+            });
+        }
+        function flipCard(card) {
+            if (lockBoard || card.classList.contains('is-flipped') || flippedCards.length >= 2) return;
+            card.classList.add('is-flipped');
+            flippedCards.push(card);
+            if (flippedCards.length === 2) {
+                lockBoard = true; attempts++; attemptsEl.textContent = `Tentativas: ${attempts}`;
+                setTimeout(checkForMatch, 1000);
+            }
+        }
+        function checkForMatch() {
+            if (flippedCards[0].dataset.image === flippedCards[1].dataset.image && attempts > 1) {
+                chaosShuffle("Achou! Porra nenhuma, otária.");
+            } else {
+                unflipCards();
+            }
+        }
+        function unflipCards() {
+            flippedCards.forEach(card => card.classList.remove('is-flipped'));
+            flippedCards = []; lockBoard = false;
+        }
+        function chaosShuffle(message){
+             showModal("Eita!", message + " As cartas mudaram de lugar!");
+             gameContainer.classList.add('shuffling');
+             setTimeout(() => {
+                createBoard(); flippedCards = []; lockBoard = false;
+                gameContainer.classList.remove('shuffling');
+             }, 500);
+        }
+        createBoard();
+        
+        const clickBtn = document.getElementById('click-test-button');
+        let clicks = 0; let gameOn = false;
+        clickBtn.addEventListener('click', () => {
+            if (gameOn) { clicks++; return; }
+            gameOn = true; clicks = 0; clickBtn.textContent = 'Clique!';
+            setTimeout(() => {
+                gameOn = false; clickBtn.textContent = 'Começar!';
+                document.getElementById('click-test-result').textContent = (clicks < 20) ? "Velocidade: Incopetente de Merda!" : "Calma bb)!";
+            }, 4000);
+        });
+        
+        const reactionBox = document.getElementById('reaction-box');
+        const reactionStartBtn = document.getElementById('reaction-start-button');
+        let reactionTimeout; let startTime;
+        reactionStartBtn.addEventListener('click', () => {
+            reactionStartBtn.classList.add('hidden');
+            reactionBox.textContent = 'Aguarde o verde...';
+            reactionBox.classList.replace('bg-blue-500', 'bg-red-500');
+            reactionTimeout = setTimeout(() => {
+                reactionBox.textContent = 'CLIQUE AGORA!';
+                reactionBox.classList.replace('bg-red-500', 'bg-green-500');
+                startTime = new Date();
+            }, Math.random() * 3000 + 2000);
+        });
+        reactionBox.addEventListener('click', () => {
+            if (!startTime) {
+                clearTimeout(reactionTimeout);
+                reactionBox.textContent = '';
+                reactionStartBtn.classList.remove('hidden');
+                reactionBox.classList.replace('bg-red-500', 'bg-blue-500');
+                if(!reactionStartBtn.classList.contains('hidden')) showModal("Muito cedo!", "CALMA PORRA!");
+            } else {
+                document.getElementById('reaction-result').textContent = `${new Date() - startTime}ms - Reflexo de lesma!`;
+                reactionBox.textContent = '';
+                reactionStartBtn.classList.remove('hidden');
+                reactionBox.classList.replace('bg-green-500', 'bg-blue-500');
+                startTime = null;
+            }
+        });
+
+        document.getElementById('terms-checkbox').addEventListener('change', (e) => {
+            if (e.target.checked) {
+                showModal('Contrato Assinado!', 'Um boleto para o lanche será enviado.');
+                e.target.disabled = true;
+            }
+        });
+        const praises = ["Você parece uma rata molhada.", "Você tem uma energia única. Geralmente doente, CAPS, retardada, esquizofrenica, mas única."];
+        document.getElementById('praise-button').addEventListener('click', () => {
+            document.getElementById('praise-output').textContent = `"${praises[Math.floor(Math.random() * praises.length)]}"`;
+        });
+    });
+    </script>
+</body>
+</html>
